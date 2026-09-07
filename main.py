@@ -9,7 +9,7 @@ if __name__ == "__main__":
     print("\033[H\033[J", end="")
     # 1. Initialize Managers
     search_manager = SearchManager()
-    file_manager = FileManager(workspace_path="./workspace")
+    file_manager = FileManager(workspace_path="./")
     
     print(f"✅ Agent initialized. Workspace locked to: {file_manager.workspace_path}")
     
