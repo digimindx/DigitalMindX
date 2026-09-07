@@ -52,12 +52,27 @@ def load_or_create_config():
             return default_config
 
 
+def print_intro():
+    """Clears the screen and prints a stylish intro box."""
+    print("\033[H\033[J", end="")  # Clear screen
+    
+    # Box dimensions and styling
+    width = 42
+    print("╔" + "═" * width + "╗")
+    print("║" + " " * width + "║")
+    print("║" + " DIGITALMINDX AGENT ".center(width) + "║")
+    print("║" + "Powered by Local LLM & Tools".center(width) + "║")
+    print("║" + "Developed By:".center(width) + "║")
+    print("║" + " A.elAzeez Mabrouk".center(width) + "║")
+    print("║" + " " * width + "║")
+    print("╚" + "═" * width + "╝")
+    print() # Empty line for spacing
+
 # ==========================================
 # 🚀 MAIN EXECUTION
 # ==========================================
 if __name__ == "__main__":
-    print("\033[H\033[J", end="")
-    print("DigitalMindX Agent!\n")
+    print_intro()
     
     # 1. Load or Create Configuration
     config = load_or_create_config()
@@ -82,9 +97,9 @@ if __name__ == "__main__":
     print("Type '/command <cmd>' to execute shell commands directly without AI.\n")
     
     while True:
-        prompt = input("::>> ").strip()
+        prompt = input("->> ").strip()
         
-        if prompt.lower() == "/quit": 
+        if prompt.lower() == "/quit" or prompt.lower() == "/exit": 
             break
             
         elif prompt.lower() == "/cls":

@@ -124,7 +124,7 @@ class Agent:
     def run(self, user_prompt: str) -> str:
         # Append the new user message to the persistent history
         self.messages.append({"role": "user", "content": user_prompt})
-        print(f"User: {user_prompt}\n")
+        print(f"🧑‍💻: {user_prompt}\n")
 
         # Step A: Initial call to local model
         response = self.client.chat.completions.create(
