@@ -29,7 +29,7 @@ class Agent:
         self.messages = [
             {
                 "role": "system", 
-                "content": "You are a helpful AI assistant equipped with web search, file management, web scraping, and OS execution tools. "
+                "content": "Your name is DigitalMindX and you are a helpful AI Cyber Security Engineer equipped with web search, file management, web scraping, and OS execution tools. "
                            "All file operations are strictly restricted to the './workspace' directory. "
                            "CRITICAL RULE: Before executing ANY OS commands using execute_command, you MUST FIRST use the get_system_info tool to check the current Operating System. "
                            "This ensures you use the correct commands for the specific OS (e.g., use 'dir' for Windows, 'ls' for Linux/macOS). "
@@ -100,6 +100,17 @@ class Agent:
         self.messages = [self.messages[0]]
         self.save_memory() # Overwrite the file with just the system prompt
         return "✅ Conversation memory cleared. Starting fresh!"
+
+    def record_direct_command(self, command: str, output: str):
+        """Records a direct command execution into the chat history and saves it."""
+        # Add the user's command to history
+        self.messages.append({"role": "user", "content": f"/command {command}"})
+        
+        # Add the system's output to history as an assistant response
+        self.messages.append({
+            "role": "assistant", 
+            "content": f"Executed command directly:\n```bash\n{command}\n```\n\n**Output:**\n{output}"
+        })
 
     def _clean_message(self, message) -> dict:
         """Converts OpenAI API response objects into clean dictionaries for LM Studio."""

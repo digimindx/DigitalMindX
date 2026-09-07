@@ -68,6 +68,13 @@ def print_intro():
     print("╚" + "═" * width + "╝")
     print() # Empty line for spacing
 
+
+def showHelp():
+    print("/exit, /quit             : Terminate Agent.")
+    print("/command <command>       : Execute direct command in the current path.")
+    print("/?                       : Show this help.")
+    print("/cls                     : Clean screen.")
+    print("/clear                   : Clear memory.")
 # ==========================================
 # 🚀 MAIN EXECUTION
 # ==========================================
@@ -109,6 +116,9 @@ if __name__ == "__main__":
         elif prompt.lower() == "/clear":
             print(agent.clear_memory())
             continue
+
+        elif prompt.lower() == "/?":
+            print("")
             
         # Direct Command Execution (Bypasses AI)
         elif prompt.lower().startswith("/command "):
