@@ -1,16 +1,17 @@
-from openai import OpenAI
 import json
-
+import os
+from openai import OpenAI
 
 # ==========================================
 # 🤖 AGENT RUNNER
 # ==========================================
 class Agent:
-    """Orchestrates the LLM, manages tool registration, and handles the conversation loop."""
+    """Orchestrates the LLM, manages tool registration, and handles the conversation loop with persistent Markdown memory."""
 
-    def __init__(self, base_url: str, api_key: str, managers: list):
+    def __init__(self, base_url: str, api_key: str, managers: list, memory_file: str = "chat_history.md"):
         self.client = OpenAI(base_url=base_url, api_key=api_key)
         self.managers = managers
+        self.memory_file = memory_file
         
         # Aggregate all schemas and tools from registered managers
         self.tools_schemas = []
@@ -20,29 +21,117 @@ class Agent:
             self.tools_schemas.extend(manager.schemas)
             self.available_tools.update(manager.tools)
 
-    def run(self, user_prompt: str) -> str:
-        messages = [
+        # Initialize conversation memory with the system prompt
+        self.messages = [
             {
                 "role": "system", 
-                "content": "You are a helpful AI assistant equipped with web search and file management tools. "
+                "content": "You are a helpful AI assistant equipped with web search, file management, web scraping, and OS execution tools. "
                            "All file operations are strictly restricted to the './workspace' directory. "
+                           "CRITICAL RULE: Before executing ANY OS commands using execute_command, you MUST FIRST use the get_system_info tool to check the current Operating System. "
+                           "This ensures you use the correct commands for the specific OS (e.g., use 'dir' for Windows, 'ls' for Linux/macOS). "
                            "Always use available tools when precise calculations, external info, or file actions are needed."
-            },
-            {"role": "user", "content": user_prompt}
+            }
         ]
 
+        #  Load previous memory from Markdown file on startup
+        self.load_memory()
+
+    def load_memory(self):
+        """Loads chat history from the Markdown file if it exists in the current path."""
+        if os.path.exists(self.memory_file):
+            try:
+                with open(self.memory_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                # Extract the JSON data from the markdown code block
+                if '```json' in content:
+                    json_str = content.split('```json')[1].split('```')[0].strip()
+                    loaded_messages = json.loads(json_str)
+                    
+                    # Validate structure and load
+                    if isinstance(loaded_messages, list) and len(loaded_messages) > 0:
+                        self.messages = loaded_messages
+                        print(f"✅ Loaded {len(self.messages) - 1} previous messages from '{self.memory_file}'")
+                    else:
+                        print(f"⚠️ '{self.memory_file}' found but invalid format. Starting fresh.")
+                else:
+                    print(f"⚠️ '{self.memory_file}' found but no JSON block found. Starting fresh.")
+            except Exception as e:
+                print(f"❌ Error loading memory: {e}. Starting fresh.")
+        else:
+            print("🆕 No previous memory found. Starting a new chat.")
+
+    def save_memory(self):
+        """Saves the current chat history to a human-readable Markdown file."""
+        try:
+            # Create a beautiful Markdown header
+            md_content = f"# DigitalMindX Chat History\n\n"
+            md_content += f"> This file stores the conversation history for the DigitalMindX agent.\n"
+            md_content += f"> The actual data is stored in the JSON block below to ensure perfect compatibility with the AI model.\n\n"
+            
+            # Add a human-readable conversation log
+            md_content += "## Conversation Log\n\n"
+            for msg in self.messages:
+                role = msg.get('role', 'unknown').capitalize()
+                content = msg.get('content', '')
+                if content:
+                    # Format content nicely for Markdown
+                    clean_content = content.replace('\n', '\n> ')
+                    md_content += f"### {role}\n> {clean_content}\n\n"
+            
+            # Append the raw JSON data inside a code block for perfect reloading
+            md_content += "---\n\n## Raw Data (Do Not Edit)\n\n```json\n"
+            md_content += json.dumps(self.messages, indent=2, ensure_ascii=False)
+            md_content += "\n```\n"
+            
+            # Write to file
+            with open(self.memory_file, 'w', encoding='utf-8') as f:
+                f.write(md_content)
+                
+        except Exception as e:
+            print(f"❌ Error saving memory to {self.memory_file}: {e}")
+
+    def clear_memory(self) -> str:
+        """Clears the conversation history and resets the memory file."""
+        self.messages = [self.messages[0]]
+        self.save_memory() # Overwrite the file with just the system prompt
+        return "✅ Conversation memory cleared. Starting fresh!"
+
+    def _clean_message(self, message) -> dict:
+        """Converts OpenAI API response objects into clean dictionaries for LM Studio."""
+        clean_msg = {
+            "role": message.role,
+            "content": message.content
+        }
+        
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            clean_msg["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "type": tc.type,
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments
+                    }
+                } for tc in message.tool_calls
+            ]
+        return clean_msg
+
+    def run(self, user_prompt: str) -> str:
+        # Append the new user message to the persistent history
+        self.messages.append({"role": "user", "content": user_prompt})
         print(f"User: {user_prompt}\n")
 
         # Step A: Initial call to local model
         response = self.client.chat.completions.create(
             model="local-model",
-            messages=messages,
+            messages=self.messages,
             tools=self.tools_schemas,
             tool_choice="auto"
         )
 
         response_message = response.choices[0].message
-        messages.append(response_message)
+        self.messages.append(self._clean_message(response_message))
 
         # Step B: Check if the model requested a tool execution
         if response_message.tool_calls:
@@ -54,7 +143,7 @@ class Agent:
                 
                 if function_name in self.available_tools:
                     tool_output = self.available_tools[function_name](**function_args)
-                    messages.append({
+                    self.messages.append({
                         "role": "tool",
                         "tool_call_id": tool_call.id,
                         "name": function_name,
@@ -62,7 +151,7 @@ class Agent:
                     })
                 else:
                     print(f"[WARNING] Model requested unknown tool: '{function_name}'")
-                    messages.append({
+                    self.messages.append({
                         "role": "tool",
                         "tool_call_id": tool_call.id,
                         "name": function_name,
@@ -72,11 +161,18 @@ class Agent:
             # Step C: Send tool result back to model for final synthesis
             final_response = self.client.chat.completions.create(
                 model="local-model",
-                messages=messages,
-                tools=self.tools_schemas, # Keep tools in context for potential chaining
+                messages=self.messages,
+                tools=self.tools_schemas,
                 tool_choice="auto"
             )
-            return final_response.choices[0].message.content
+            
+            final_message = final_response.choices[0].message
+            self.messages.append(self._clean_message(final_message))
+            
+            # 🌟 Save memory after every successful turn
+            self.save_memory()
+            return final_message.content
         else:
+            # 🌟 Save memory even if no tools were used
+            self.save_memory()
             return response_message.content
-
