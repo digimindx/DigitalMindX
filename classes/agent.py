@@ -8,10 +8,9 @@ from openai import OpenAI
 class Agent:
     """Orchestrates the LLM, manages tool registration, and handles the conversation loop with persistent Markdown memory."""
 
-    def __init__(self, base_url: str, api_key: str, managers: list, memory_file: str = "chat_history.md"):
+    def __init__(self, base_url: str, api_key: str, managers: list, workspace_path: str = "./workspace"):
         self.client = OpenAI(base_url=base_url, api_key=api_key)
         self.managers = managers
-        self.memory_file = memory_file
         
         # Aggregate all schemas and tools from registered managers
         self.tools_schemas = []
@@ -20,6 +19,11 @@ class Agent:
         for manager in self.managers:
             self.tools_schemas.extend(manager.schemas)
             self.available_tools.update(manager.tools)
+
+        # 🌟 Setup Workspace and Memory File Path
+        self.workspace_path = os.path.abspath(workspace_path)
+        os.makedirs(self.workspace_path, exist_ok=True) # Ensure workspace exists
+        self.memory_file = os.path.join(self.workspace_path, "chat_history.md")
 
         # Initialize conversation memory with the system prompt
         self.messages = [
@@ -33,11 +37,11 @@ class Agent:
             }
         ]
 
-        #  Load previous memory from Markdown file on startup
+        # Load previous memory from Markdown file on startup
         self.load_memory()
 
     def load_memory(self):
-        """Loads chat history from the Markdown file if it exists in the current path."""
+        """Loads chat history from the Markdown file inside the workspace folder."""
         if os.path.exists(self.memory_file):
             try:
                 with open(self.memory_file, 'r', encoding='utf-8') as f:
@@ -59,10 +63,10 @@ class Agent:
             except Exception as e:
                 print(f"❌ Error loading memory: {e}. Starting fresh.")
         else:
-            print("🆕 No previous memory found. Starting a new chat.")
+            print(" No previous memory found. Starting a new chat.")
 
     def save_memory(self):
-        """Saves the current chat history to a human-readable Markdown file."""
+        """Saves the current chat history to a human-readable Markdown file inside the workspace."""
         try:
             # Create a beautiful Markdown header
             md_content = f"# DigitalMindX Chat History\n\n"
@@ -84,7 +88,7 @@ class Agent:
             md_content += json.dumps(self.messages, indent=2, ensure_ascii=False)
             md_content += "\n```\n"
             
-            # Write to file
+            # Write to file inside the workspace
             with open(self.memory_file, 'w', encoding='utf-8') as f:
                 f.write(md_content)
                 
