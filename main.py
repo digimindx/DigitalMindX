@@ -117,8 +117,8 @@ if __name__ == "__main__":
             print(agent.clear_memory())
             continue
 
-        elif prompt.lower() == "/?":
-            print("")
+        elif prompt.lower() == "/?" or prompt.lower() == "/help":
+            showHelp()
             
         # Direct Command Execution (Bypasses AI)
         elif prompt.lower().startswith("/command "):
