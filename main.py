@@ -104,7 +104,9 @@ if __name__ == "__main__":
     print("Type '/command <cmd>' to execute shell commands directly without AI.\n")
     
     while True:
+        print("---------------------------------------------------------------------")
         prompt = input("->> ").strip()
+        print("---------------------------------------------------------------------")
         
         if prompt.lower() == "/quit" or prompt.lower() == "/exit": 
             break
@@ -130,6 +132,16 @@ if __name__ == "__main__":
             else:
                 print("⚠️ Please provide a command. Usage: /command <your_command>\n")
             continue
+        
+        elif prompt.lower().startswith("/history "):
+            search_query = prompt[9:].strip()
+            if search_query:
+                print(f"\n🔍 Searching history for: '{search_query}'")
+                result = agent.search_history(search_query)
+                print(f"\n{result}\n")
+            else:
+                print("⚠️ Please provide a search term. Usage: /history <keyword>\n")
+            continue
             
         elif not prompt:
             print("I have nothing to do!\n")
@@ -137,4 +149,5 @@ if __name__ == "__main__":
         
         # Run the agent and get response
         result = agent.run(prompt)
+        print("=====================================================================")
         print(f"\nAgent: {result}\n")

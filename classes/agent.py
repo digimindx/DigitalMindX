@@ -112,6 +112,30 @@ class Agent:
             "content": f"Executed command directly:\n```bash\n{command}\n```\n\n**Output:**\n{output}"
         })
 
+    def search_history(self, query: str) -> str:
+        """Searches the chat history (in-memory mirror of the file) for a specific keyword."""
+        if not query:
+            return "Please provide a search term. Usage: /history <keyword>"
+        
+        query_lower = query.lower()
+        matches = []
+        
+        # Search through all messages for the keyword (case-insensitive)
+        for i, msg in enumerate(self.messages):
+            content = msg.get('content', '')
+            if content and query_lower in content.lower():
+                role = msg.get('role', 'unknown').upper()
+                # Truncate very long messages to keep the terminal output clean
+                snippet = content[:300] + ("..." if len(content) > 300 else "")
+                matches.append(f"Turn {i} [{role}]:\n{snippet}")
+                
+        if not matches:
+            return f"❌ No matches found for '{query}' in the chat history."
+        
+        # Format and return the results
+        separator = "\n\n" + "-"*50 + "\n\n"
+        return f" Found {len(matches)} match(es) for '{query}':\n\n" + separator.join(matches)
+
     def _clean_message(self, message) -> dict:
         """Converts OpenAI API response objects into clean dictionaries for LM Studio."""
         clean_msg = {
@@ -135,7 +159,7 @@ class Agent:
     def run(self, user_prompt: str) -> str:
         # Append the new user message to the persistent history
         self.messages.append({"role": "user", "content": user_prompt})
-        print(f"🧑‍💻: {user_prompt}\n")
+        #print(f"🧑: {user_prompt}\n")
 
         # Step A: Initial call to local model
         response = self.client.chat.completions.create(
